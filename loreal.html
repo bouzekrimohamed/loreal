@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Contrôleur ICPE ESR – L’ORÉAL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #4c1d95, #db2777, #4c1d95);
+      background-size: 200% 200%;
+      animation: gradient 15s ease infinite;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 1.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.6),
+        0 0 40px rgba(99, 102, 241, 0.3),
+        0 0 60px rgba(168, 85, 247, 0.2);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .btn-glow {
+      background: linear-gradient(45deg, #6366f1, #a855f7);
+      transition: all 0.3s ease;
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.6);
+    }
+    .btn-glow:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 40px rgba(99, 102, 241, 0.9), 0 0 60px rgba(168, 85, 247, 0.6);
+    }
+    .dropzone {
+      border: 2px dashed rgba(99, 102, 241, 0.6);
+      background: rgba(99, 102, 241, 0.05);
+      transition: all 0.3s ease;
+      border-radius: 1rem;
+      padding: 2.5rem;
+      text-align: center;
+      cursor: pointer;
+    }
+    .dropzone.dragover {
+      border-color: #a855f7;
+      background: rgba(168, 85, 247, 0.15);
+      transform: scale(1.02);
+    }
+    .text-glow {
+      text-shadow: 0 0 20px rgba(99, 102, 241, 0.8);
+    }
+    .scroll-table {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(99,102,241,0.8) transparent;
+    }
+    .scroll-table::-webkit-scrollbar {
+      height: 8px;
+      width: 8px;
+    }
+    .scroll-table::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .scroll-table::-webkit-scrollbar-thumb {
+      background: rgba(99,102,241,0.8);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body>
+  <div class="w-full max-w-5xl glass p-8">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-bold text-glow">Contrôleur ICPE ESR – L’ORÉAL</h1>
+        <p class="text-slate-300 mt-2 text-sm md:text-base">
+          Dépose ton fichier <span class="font-semibold text-indigo-300">Excel L’ORÉAL</span>. L’outil vérifie les règles ICPE et crée un onglet <span class="font-semibold text-purple-300">« Alerte ICPE ESR »</span> avec les anomalies.
+        </p>
+      </div>
+      <div class="text-xs md:text-sm text-right text-slate-400">
+        Mode : <span class="font-semibold text-indigo-300">Glass UI • Néon Dynamique</span><br>
+        Traitement 100% local dans ton navigateur ⚡
+      </div>
+    </header>
+    <!-- Upload Zone -->
+    <section>
+      <input id="fileInput" type="file" accept=".xlsx,.xls" class="hidden" />
+      <div id="dropzone" class="dropzone">
+        <div class="flex flex-col items-center gap-3">
+          <div class="w-16 h-16 rounded-full border border-slate-500/70 flex items-center justify-center bg-slate-900/60">
+            <span class="text-4xl">📁</span>
+          </div>
+          <div>
+            <p class="font-semibold text-xl">
+              Glisse ton fichier Excel ici
+            </p>
+            <p class="text-slate-300 text-sm mt-1">
+              ou <span class="underline decoration-indigo-400/60 hover:decoration-indigo-400">clique pour le sélectionner</span> <br>
+              Feuille utilisée : <span class="font-mono text-purple-300">« Image de Stock »</span> (ou la 1ère si absente)
+            </p>
+          </div>
+          <p id="fileName" class="text-xs text-slate-400 mt-2">
+            Aucun fichier sélectionné.
+          </p>
+        </div>
+      </div>
+    </section>
+    <!-- Stats -->
+    <section class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+      <div class="rounded-xl border border-slate-600/70 px-4 py-3 bg-slate-900/50">
+        <p class="text-slate-400 text-xs uppercase tracking-wide">Lignes STORAGE contrôlées</p>
+        <p id="statStorage" class="text-lg font-semibold mt-1">–</p>
+      </div>
+      <div class="rounded-xl border border-slate-600/70 px-4 py-3 bg-slate-900/50">
+        <p class="text-slate-400 text-xs uppercase tracking-wide">Anomalies détectées</p>
+        <p id="statErrors" class="text-lg font-semibold mt-1 text-rose-400">–</p>
+      </div>
+      <div class="rounded-xl border border-slate-600/70 px-4 py-3 bg-slate-900/50">
+        <p class="text-slate-400 text-xs uppercase tracking-wide">ICPE ignorés (1510 ou autres)</p>
+        <p id="statIgnored" class="text-lg font-semibold mt-1 text-slate-200">–</p>
+      </div>
+    </section>
+    <!-- Actions -->
+    <section class="mt-6 flex flex-col md:flex-row md:items-center gap-3">
+      <button id="downloadBtn" class="btn-glow text-white font-medium px-6 py-3 rounded-full text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+        ⬇ Télécharger le fichier corrigé (.xlsx)
+      </button>
+      <p id="status" class="text-xs text-slate-400 md:ml-3">
+        En attente d’un fichier… (Si le clic ne marche pas, vérifie que tu ouvres ce fichier HTML dans un navigateur comme Chrome ou Firefox, pas dans un éditeur ou chat.)
+      </p>
+    </section>
+    <!-- Table des anomalies -->
+    <section class="mt-8">
+      <h2 class="text-sm font-semibold text-slate-100 mb-3 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+        Aperçu des anomalies (onglet « Alerte ICPE ESR »)
+      </h2>
+      <div class="scroll-table overflow-auto max-h-80 border border-slate-700/80 rounded-xl bg-slate-950/70">
+        <table class="min-w-full text-xs divide-y divide-slate-800">
+          <thead class="bg-slate-900/80 sticky top-0 z-10">
+            <tr>
+              <th class="px-4 py-2.5 text-left text-slate-300 font-semibold">Ligne</th>
+              <th class="px-4 py-2.5 text-left text-slate-300 font-semibold">Type (B)</th>
+              <th class="px-4 py-2.5 text-left text-slate-300 font-semibold">Emplacement (C)</th>
+              <th class="px-4 py-2.5 text-left text-slate-300 font-semibold">ICPE (J)</th>
+              <th class="px-4 py-2.5 text-left text-slate-300 font-semibold">Raison</th>
+            </tr>
+          </thead>
+          <tbody id="errorTableBody" class="divide-y divide-slate-800/80">
+            <!-- Anomalies ici -->
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-2 italic">
+        Pour chaque ligne en anomalie, toutes les colonnes d’origine sont aussi présentes dans l’onglet <span class="font-mono text-purple-300">Alerte ICPE ESR</span> du fichier exporté.
+      </p>
+    </section>
+    <!-- Logos & Footer -->
+    <footer class="mt-8 flex flex-col md:flex-row justify-center items-center gap-4 text-slate-400 text-sm">
+      <img src="kn.png" alt="KN Logo" class="h-8">
+      <img src="loreal.png" alt="L'Oréal Logo" class="h-8">
+      <p>Made with Momo ❤️</p>
+    </footer>
+  </div>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const fileNameEl = document.getElementById('fileName');
+    const statusEl = document.getElementById('status');
+    const statStorageEl = document.getElementById('statStorage');
+    const statErrorsEl = document.getElementById('statErrors');
+    const statIgnoredEl = document.getElementById('statIgnored');
+    const errorTableBody = document.getElementById('errorTableBody');
+    const downloadBtn = document.getElementById('downloadBtn');
+    let currentWorkbook = null;
+    let currentFileName = '';
+    let anomalies = [];
+
+    // Événements Drag & Drop + Clic
+    dropzone.addEventListener('click', () => {
+      fileInput.click();
+    });
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+        handleFile(file);
+      } else {
+        alert('Veuillez déposer un fichier Excel (.xlsx ou .xls).');
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    function handleFile(file) {
+      resetUI();
+      currentFileName = file.name;
+      fileNameEl.textContent = `Fichier : ${file.name}`;
+      statusEl.textContent = 'Lecture en cours...';
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          currentWorkbook = XLSX.read(data, { type: 'array' });
+          const sheetName = currentWorkbook.SheetNames.includes('Image de Stock') ? 'Image de Stock' : currentWorkbook.SheetNames[0];
+          statusEl.textContent = `Feuille : « ${sheetName} ». Analyse...`;
+          const ws = currentWorkbook.Sheets[sheetName];
+          const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 });
+          processData(aoa, sheetName);
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = 'Erreur de lecture. Vérifiez le format Excel.';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function resetUI() {
+      statStorageEl.textContent = '–';
+      statErrorsEl.textContent = '–';
+      statIgnoredEl.textContent = '–';
+      errorTableBody.innerHTML = '';
+      anomalies = [];
+      downloadBtn.disabled = true;
+    }
+
+    function processData(aoa, sheetName) {
+      if (!aoa || aoa.length < 2) {
+        statusEl.textContent = 'Feuille vide ou sans données.';
+        return;
+      }
+      const header = aoa[0];
+      const rows = aoa.slice(1);
+      let storageCount = 0;
+      let ignoredCount = 0;
+      anomalies = [];
+      rows.forEach((row, idx) => {
+        const excelRowIndex = idx + 2;
+        const typeEmplacement = (row[1] || '').toString().trim().toUpperCase(); // B
+        const emplacement = (row[2] || '').toString().trim().toUpperCase(); // C
+        const icpeRaw = (row[9] || '').toString().trim(); // J
+        if (typeEmplacement !== 'STORAGE') return;
+        storageCount++;
+        if (emplacement.includes('VRAC') || emplacement.includes('QUAI')) {
+          ignoredCount++;
+          return;
+        }
+        if (!icpeRaw) {
+          ignoredCount++;
+          return;
+        }
+        const icpe = parseInt(icpeRaw, 10);
+        if (isNaN(icpe) || icpe === 1510) {
+          ignoredCount++;
+          return;
+        }
+        let hasError = false;
+        let reason = '';
+        if (icpe === 4320 && !emplacement.startsWith('95')) {
+          hasError = true;
+          reason = 'ICPE 4320 : doit commencer par "95".';
+        } else if (icpe === 4331 && !emplacement.startsWith('90')) {
+          hasError = true;
+          reason = 'ICPE 4331 : doit commencer par "90".';
+        } else if (icpe === 4511 && !emplacement.startsWith('80')) {
+          hasError = true;
+          reason = 'ICPE 4511 : doit commencer par "80".';
+        }
+        if (hasError) {
+          anomalies.push({ rowIndex: excelRowIndex, rowData: row, reason });
+        }
+      });
+      statStorageEl.textContent = storageCount;
+      statIgnoredEl.textContent = ignoredCount;
+      statErrorsEl.textContent = anomalies.length;
+      if (anomalies.length > 0) {
+        populateErrorTable();
+        createAnomalySheet(header);
+        downloadBtn.disabled = false;
+        statusEl.textContent = 'Analyse terminée. Anomalies trouvées.';
+      } else {
+        statusEl.textContent = 'Analyse terminée. Aucune anomalie.';
+      }
+    }
+
+    function populateErrorTable() {
+      anomalies.forEach(anom => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-4 py-2">${anom.rowIndex}</td>
+          <td class="px-4 py-2">STORAGE</td>
+          <td class="px-4 py-2">${anom.rowData[2] || ''}</td>
+          <td class="px-4 py-2">${anom.rowData[9] || ''}</td>
+          <td class="px-4 py-2 text-rose-300">${anom.reason}</td>
+        `;
+        errorTableBody.appendChild(tr);
+      });
+    }
+
+    function createAnomalySheet(originalHeader) {
+      const anomalyHeader = [...originalHeader, 'Raison'];
+      const anomalyData = anomalies.map(anom => [...anom.rowData, anom.reason]);
+      const anomalyAoa = [anomalyHeader, ...anomalyData];
+      const anomalyWs = XLSX.utils.aoa_to_sheet(anomalyAoa);
+      if (currentWorkbook.SheetNames.includes('Alerte ICPE ESR')) {
+        currentWorkbook.Sheets['Alerte ICPE ESR'] = anomalyWs;
+      } else {
+        XLSX.utils.book_append_sheet(currentWorkbook, anomalyWs, 'Alerte ICPE ESR');
+      }
+    }
+
+    downloadBtn.addEventListener('click', () => {
+      const newFileName = currentFileName.replace(/\.xlsx?$/, '_avec_alertes.xlsx');
+      XLSX.writeFile(currentWorkbook, newFileName);
+    });
+  </script>
+</body>
+</html>
